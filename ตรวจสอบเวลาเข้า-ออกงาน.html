@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ตรวจสอบเวลาเข้า-ออกงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<style>
+/* ===== Theme tokens ===== */
+:root{
+  --bg:#F4F2EC; --surface:#FFFFFF; --ink:#1C2B2E; --muted:#5F6B6D;
+  --line:#C9C3B4; --line-soft:#E4DFD2;
+  --accent:#C76B3E; --accent-bg:#F8E9E0;
+  --ok:#3D6B52; --ok-bg:#E6EFE8;
+  --warn:#A6402C; --warn-bg:#FBEAE4;
+  --hol:#5A5548; --hol-bg:#ECE8DC;
+  --shadow:0 1px 2px rgba(28,43,46,.06), 0 4px 14px rgba(28,43,46,.05);
+  --radius:16px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171613; --surface:#211F1A; --ink:#E9E4D8; --muted:#A9A395;
+    --line:#3A362C; --line-soft:#2D2A22;
+    --accent:#E08A5C; --accent-bg:#3A2A20;
+    --ok:#8FC9A6; --ok-bg:#1C2A20;
+    --warn:#E8A08C; --warn-bg:#3A1F18;
+    --hol:#C9C3B0; --hol-bg:#2A271E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171613; --surface:#211F1A; --ink:#E9E4D8; --muted:#A9A395;
+  --line:#3A362C; --line-soft:#2D2A22;
+  --accent:#E08A5C; --accent-bg:#3A2A20;
+  --ok:#8FC9A6; --ok-bg:#1C2A20;
+  --warn:#E8A08C; --warn-bg:#3A1F18;
+  --hol:#C9C3B0; --hol-bg:#2A271E;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.25);
+}
+
+/* ===== Base ===== */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Noto Sans Thai','IBM Plex Sans Thai','Sarabun','Segoe UI',system-ui,sans-serif;
+  font-size:16px; line-height:1.55; overflow-x:hidden;
+}
+[hidden]{display:none !important}
+.app{max-width:960px;margin:0 auto;padding:20px 16px 56px}
+.ic{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
+.ic.lg{width:28px;height:28px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ===== Header ===== */
+.hdr{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.hdr-ic{width:48px;height:48px;border-radius:14px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;flex:none}
+.hdr-tx{flex:1;min-width:0}
+.hdr h1{margin:0;font-size:1.25rem;line-height:1.3;font-weight:700}
+.hdr p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+.icon-btn{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;flex:none;box-shadow:var(--shadow)}
+
+/* ===== Cards ===== */
+.card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);box-shadow:var(--shadow)}
+.stack{display:grid;gap:16px}
+
+/* ===== Upload ===== */
+.dz{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:28px 20px;border:2px dashed var(--line);border-radius:var(--radius);margin:12px;cursor:pointer;transition:border-color .15s,background .15s}
+.dz:hover,.card.drag .dz{border-color:var(--accent);background:var(--accent-bg)}
+.dz-ic{width:56px;height:56px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;margin-bottom:6px}
+.dz b{font-size:1.05rem}
+.dz .hint{color:var(--muted);font-size:.9rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:12px;border:0;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;margin-top:10px}
+:root[data-theme="dark"] .btn{color:#1a120d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#1a120d}}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:0;min-height:46px;padding:0 16px}
+.only-fine{display:none}
+@media (hover:hover) and (pointer:fine){.only-fine{display:inline}}
+.filebox{display:flex;align-items:center;gap:14px;padding:16px;flex-wrap:wrap}
+.file-ic{width:48px;height:48px;border-radius:12px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;flex:none}
+.file-tx{flex:1;min-width:0}
+.file-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:.88rem;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:.82rem;font-weight:600}
+.chip.loading{background:var(--hol-bg);color:var(--hol)}
+.chip.success{background:var(--ok-bg);color:var(--ok)}
+.chip.error{background:var(--warn-bg);color:var(--warn)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-msg{flex-basis:100%;color:var(--warn);font-size:.92rem}
+
+/* ===== Rules ===== */
+details.rules{padding:0}
+details.rules summary{list-style:none;display:flex;align-items:center;gap:10px;padding:16px;min-height:56px;cursor:pointer;font-weight:600}
+details.rules summary::-webkit-details-marker{display:none}
+details.rules summary .ic.chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+details.rules[open] summary .ic.chev{transform:rotate(180deg)}
+.rules-grid{display:grid;gap:10px;padding:0 16px 16px}
+.rule{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;background:var(--bg)}
+.rule-ic{width:36px;height:36px;border-radius:10px;background:var(--surface);color:var(--accent);display:grid;place-items:center;flex:none;border:1px solid var(--line-soft)}
+.rule p{margin:0;font-size:.95rem}
+.t{display:inline-block;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);font-size:1.05em}
+
+/* ===== Summary ===== */
+.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat{padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat-top{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem;font-weight:500}
+.stat .n{font-size:2.1rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat.ok .stat-top{color:var(--ok)} .stat.ok .n{color:var(--ok)}
+.stat.warn .stat-top{color:var(--warn)} .stat.warn .n{color:var(--warn)}
+.stat.holiday .stat-top{color:var(--hol)} .stat.holiday .n{color:var(--hol)}
+
+/* ===== Results ===== */
+.res-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 16px 8px}
+.res-head h2{margin:0;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.res-head span{color:var(--muted);font-size:.9rem}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:.84rem;font-weight:600;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.badge.holiday{background:var(--hol-bg);color:var(--hol)}
+.tm{font-variant-numeric:tabular-nums}
+.tm.none{color:var(--muted)}
+
+/* mobile: card list */
+.tbl{display:none}
+.list{display:grid;gap:10px;padding:8px 12px 14px}
+.dayc{border:1px solid var(--line-soft);border-left-width:4px;border-radius:12px;padding:12px 14px;display:grid;gap:10px;background:var(--surface)}
+.dayc.ok{border-left-color:var(--ok)}
+.dayc.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.dayc.holiday{border-left-color:var(--hol);background:var(--hol-bg)}
+.dayc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dayc-date{font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.timec{background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px}
+.timec small{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.8rem}
+.timec .tm{font-size:1.1rem;font-weight:600}
+.note{font-size:.92rem;overflow-wrap:anywhere}
+.dayc.warn .note{color:var(--warn);font-weight:500}
+.dayc.holiday .note{color:var(--hol)}
+.note b{color:var(--muted);font-weight:500}
+.dayc.warn .note b,.dayc.holiday .note b{color:inherit;opacity:.8}
+
+/* tablet/desktop */
+@media (min-width:768px){
+  .app{padding:32px 24px 72px}
+  .hdr h1{font-size:1.5rem}
+  .summary{grid-template-columns:repeat(4,1fr)}
+  .rules-grid{grid-template-columns:1fr 1fr}
+  .list{display:none}
+  .tbl{display:block;padding:0 8px 12px}
+  table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:.95rem}
+  thead th{text-align:left;font-size:.8rem;font-weight:600;color:var(--muted);padding:10px 12px;border-bottom:2px solid var(--line)}
+  tbody td{padding:12px;border-bottom:1px solid var(--line-soft);vertical-align:top;overflow-wrap:anywhere}
+  tbody tr.warn td{background:var(--warn-bg)}
+  tbody tr.holiday td{background:var(--hol-bg)}
+  tbody tr td:first-child{border-left:4px solid transparent}
+  tbody tr.ok td:first-child{border-left-color:var(--ok)}
+  tbody tr.warn td:first-child{border-left-color:var(--warn)}
+  tbody tr.holiday td:first-child{border-left-color:var(--hol)}
+  tbody tr.warn .note-cell{color:var(--warn);font-weight:500}
+  tbody tr.holiday .note-cell{color:var(--hol)}
+  col.c-date{width:22%} col.c-st{width:15%} col.c-in{width:14%} col.c-out{width:14%} col.c-note{width:35%}
+}
+@media (max-width:359px){
+  .stat .n{font-size:1.8rem}
+  .timec .tm{font-size:1rem}
+}
+footer{margin-top:28px;display:flex;justify-content:center;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+
+<!-- Icon sprite (Lucide-style, stroke icons) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-file-check" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-calendar-check" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="hdr">
+    <div class="hdr-ic"><svg class="ic lg"><use href="#i-clock"/></svg></div>
+    <div class="hdr-tx">
+      <h1>ตรวจสอบเวลาเข้า-ออกงาน</h1>
+      <p>อัปโหลดรายงานเวลาจาก PDF แล้วระบบจะขึ้นเตือนรายวันที่ผิดเงื่อนไข</p>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="สลับธีมสว่าง/มืด"><svg class="ic" id="themeIc"><use href="#i-moon"/></svg></button>
+  </header>
+
+  <main class="stack">
+    <!-- Upload -->
+    <section class="card" id="uploadCard" aria-label="อัปโหลดไฟล์">
+      <label class="dz" id="dz" for="file">
+        <span class="dz-ic"><svg class="ic lg"><use href="#i-upload"/></svg></span>
+        <b>อัปโหลดรายงานเวลาเข้า-ออกงาน</b>
+        <span class="hint">รองรับไฟล์ PDF<span class="only-fine"> · ลากไฟล์มาวางที่นี่ได้</span></span>
+        <span class="btn"><svg class="ic sm"><use href="#i-file"/></svg>เลือกไฟล์ PDF</span>
+      </label>
+      <div class="filebox" id="filebox" hidden>
+        <div class="file-ic"><svg class="ic lg"><use href="#i-file"/></svg></div>
+        <div class="file-tx">
+          <div class="file-name" id="fname"></div>
+          <div class="file-meta"><span id="fsize"></span><span class="chip loading" id="chip"></span></div>
+        </div>
+        <label class="btn ghost" for="file"><svg class="ic sm"><use href="#i-refresh"/></svg>เปลี่ยนไฟล์</label>
+        <div class="err-msg" id="errmsg" hidden></div>
+      </div>
+      <input class="sr-only" type="file" id="file" accept="application/pdf,.pdf">
+    </section>
+
+    <!-- Rules -->
+    <details class="card rules" id="rules">
+      <summary><svg class="ic" style="color:var(--accent)"><use href="#i-info"/></svg>เงื่อนไขที่ตรวจ<svg class="ic chev"><use href="#i-chev"/></svg></summary>
+      <div class="rules-grid">
+        <div class="rule"><span class="rule-ic"><svg class="ic sm"><use href="#i-login"/></svg></span><p>เข้างาน (สแกนรอบแรก) ต้องไม่เกิน <span class="t">07:30</span> น.</p></div>
+        <div class="rule"><span class="rule-ic"><svg class="ic sm"><use href="#i-logout"/></svg></span><p>เลิกงาน (สแกนรอบหลัง) ต้องไม่ต่ำกว่า <span class="t">17:30</span> น.</p></div>
+        <div class="rule"><span class="rule-ic"><svg class="ic sm"><use href="#i-copy"/></svg></span><p>ถ้าเวลาเข้า-ออกตรงกันเป๊ะ ถือว่าลืมสแกนอย่างใดอย่างหนึ่ง</p></div>
+        <div class="rule"><span class="rule-ic"><svg class="ic sm"><use href="#i-calendar-check"/></svg></span><p>วันที่ไม่มีข้อมูลเข้า-ออกเลย จะตรวจก่อนว่าเป็นวันหยุด/วันลาหรือไม่ ถ้าไม่ใช่วันหยุดจะขึ้นเตือน</p></div>
+      </div>
+    </details>
+
+    <!-- Results -->
+    <div class="stack" id="results" hidden>
+      <section class="summary" id="summary" aria-label="สรุปผล"></section>
+      <section class="card" aria-label="ผลการตรวจสอบรายวัน">
+        <div class="res-head">
+          <h2><svg class="ic" style="color:var(--accent)"><use href="#i-calendar"/></svg>ผลการตรวจสอบรายวัน</h2>
+          <span id="rescount"></span>
+        </div>
+        <div class="tbl">
+          <table>
+            <colgroup><col class="c-date"><col class="c-st"><col class="c-in"><col class="c-out"><col class="c-note"></colgroup>
+            <thead><tr><th>วันที่</th><th>สถานะ</th><th>เวลาเข้างาน</th><th>เวลาเลิกงาน</th><th>หมายเหตุ</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="list" id="list"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer><svg class="ic sm"><use href="#i-lock"/></svg>ประมวลผลในเบราว์เซอร์ของคุณทั้งหมด ไม่มีการอัปโหลดไฟล์ขึ้นเซิร์ฟเวอร์</footer>
+</div>
+
+<script>
+/* The worker script above is loaded as a plain <script> tag (not as a Worker),
+   which registers window.pdfjsWorker. Leaving GlobalWorkerOptions.workerSrc unset
+   makes pdf.js use that in-page fallback instead of spawning a cross-origin Worker,
+   which published pages here block. */
+
+/* ================= UI wiring ================= */
+const $ = id => document.getElementById(id);
+const fileEl = $('file'), dz = $('dz'), filebox = $('filebox'), uploadCard = $('uploadCard');
+const fnameEl = $('fname'), fsizeEl = $('fsize'), chipEl = $('chip'), errEl = $('errmsg');
+const resultsEl = $('results'), summaryEl = $('summary'), tbodyEl = $('tbody'), listEl = $('list'), rescountEl = $('rescount');
+const rulesEl = $('rules');
+
+if (window.matchMedia('(min-width:768px)').matches) rulesEl.open = true;
+
+function icon(id, cls){ return '<svg class="ic ' + (cls||'') + '"><use href="#i-' + id + '"/></svg>'; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* Theme toggle (remembered locally) */
+(function(){
+  const root = document.documentElement, btn = $('themeBtn'), ic = $('themeIc');
+  function effective(){
+    const a = root.getAttribute('data-theme');
+    if (a) return a;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function paint(){ ic.innerHTML = '<use href="#i-' + (effective()==='dark' ? 'sun' : 'moon') + '"/>'; }
+  try { const s = localStorage.getItem('att-theme'); if (s==='light'||s==='dark') root.setAttribute('data-theme', s); } catch(e){}
+  paint();
+  btn.addEventListener('click', () => {
+    const next = effective()==='dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('att-theme', next); } catch(e){}
+    paint();
+  });
+})();
+
+/* Drag & drop (desktop) */
+['dragenter','dragover'].forEach(ev => uploadCard.addEventListener(ev, e => { e.preventDefault(); uploadCard.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => uploadCard.addEventListener(ev, e => { e.preventDefault(); uploadCard.classList.remove('drag'); }));
+uploadCard.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+fileEl.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function setChip(kind, text){
+  chipEl.className = 'chip ' + kind;
+  const ic = kind==='loading' ? icon('refresh','sm spin') : kind==='success' ? icon('file-check','sm') : icon('alert','sm');
+  chipEl.innerHTML = ic + esc(text);
+}
+function showError(msg){ errEl.textContent = msg; errEl.hidden = false; }
+
+function handleFile(file){
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  dz.hidden = true; filebox.hidden = false;
+  fnameEl.textContent = file.name;
+  fsizeEl.textContent = (file.size/1024 < 1024) ? (file.size/1024).toFixed(0) + ' KB' : (file.size/1048576).toFixed(1) + ' MB';
+  errEl.hidden = true; resultsEl.hidden = true;
+  if (!isPdf){ setChip('error','ไม่ใช่ไฟล์ PDF'); showError('กรุณาเลือกไฟล์ PDF รายงานเวลาเข้า-ออกงาน'); fileEl.value=''; return; }
+  setChip('loading','กำลังประมวลผล…');
+  const reader = new FileReader();
+  reader.onload = async function(ev){
+    try{
+      const rows = await extractRows(ev.target.result);
+      if(!rows.length){
+        setChip('error','อ่านไม่สำเร็จ');
+        showError('อ่านไฟล์ไม่พบข้อมูลตารางเวลา ลองตรวจสอบว่าเป็นไฟล์รูปแบบเดียวกันหรือไม่');
+        return;
+      }
+      const checked = rows.map(checkRow);
+      render(checked);
+      setChip('success','อ่านสำเร็จ ' + rows.length + ' แถว');
+      if (window.matchMedia('(max-width:767px)').matches) resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
+    }catch(err){
+      console.error(err);
+      setChip('error','เกิดข้อผิดพลาด');
+      showError('เกิดข้อผิดพลาดขณะอ่านไฟล์: ' + err.message);
+    }
+  };
+  reader.onerror = function(){ setChip('error','เกิดข้อผิดพลาด'); showError('เปิดไฟล์ไม่ได้'); };
+  reader.readAsArrayBuffer(file);
+  fileEl.value = ''; // lets the same file be chosen again
+}
+
+/* ================= Checking logic (unchanged from the working version) ================= */
+
+// ---- PDF extraction: group text items into rows by y position ----
+// pdf.js merges "day month year" into a single text item per date column,
+// so classification is done by content shape (date / time / late-minutes), not by x-column guessing.
+async function extractRows(arrayBuffer){
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const rawRows = [];
+  const LEFT_CUTOFF = 420; // drops employee id/name/position/tenure columns that share row 1 with day 1
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items
+      .map(it => ({text: it.str.trim(), x: it.transform[4], y: it.transform[5]}))
+      .filter(it => it.text.length && it.x >= LEFT_CUTOFF);
+    items.sort((a,b) => (b.y - a.y) || (a.x - b.x));
+    let current = null;
+    for(const it of items){
+      if(!current || Math.abs(current.y - it.y) > 3){
+        current = {y: it.y, items: []};
+        rawRows.push(current);
+      }
+      current.items.push(it);
+    }
+  }
+  const dateRe = /^(\d{1,2})\s+(.+?)\s+(20\d{2})$/;
+  const timeRe = /^\d{1,2}:\d{2}:\d{2}$/;
+  const lateRe = /^\d{1,3}:\d{1,2}$/; // "late minutes" column, e.g. "0:0" — one colon, no seconds
+  const dayRows = [];
+  for(const r of rawRows){
+    let day=null, monthRaw='', year='', times=[], holiday='';
+    for(const it of r.items){
+      const t = it.text;
+      const m = dateRe.exec(t);
+      if(m){ day=m[1]; monthRaw=m[2]; year=m[3]; continue; }
+      if(timeRe.test(t)){ times.push({x:it.x, t}); continue; }
+      if(lateRe.test(t)) continue;
+      holiday += t;
+    }
+    if(day===null) continue; // header/title/summary rows have no date item — skip
+    times.sort((a,b)=>a.x-b.x);
+    dayRows.push({
+      day, monthRaw, year,
+      checkIn: times[0] ? times[0].t : null,
+      checkOut: times[1] ? times[1].t : null,
+      holidayRaw: holiday || null
+    });
+  }
+  return dayRows.map(cleanRow);
+}
+
+function cleanRow(r){
+  // The PDF's Thai text comes out with vowel/tone marks scrambled, but the base consonants
+  // survive, so months are matched on a short consonant+า fragment. Covers all 12 months;
+  // an unrecognised month falls back to the raw text instead of hiding the row's date.
+  const my = r.monthRaw;
+  const MONTHS = [
+    ['มกราคม','ราคม'], ['กุมภาพันธ์','ภาพ'], ['มีนาคม','นาคม'], ['เมษายน','ษายน'],
+    ['พฤษภาคม','ภาคม'], ['มิถุนายน','ยนายน'], ['กรกฎาคม','กรกฎ'], ['สิงหาคม','หาคม'],
+    ['กันยายน','ยายน'], ['ตุลาคม','ลาคม'], ['พฤศจิกายน','กายน'], ['ธันวาคม','วาคม']
+  ];
+  const hit = MONTHS.find(m => my.includes(m[1]));
+  const month = hit ? hit[0] : my;
+  let holidayLabel = null;
+  const h = r.holidayRaw;
+  if(h){
+    if(h.includes('อาท')) holidayLabel = 'วันอาทิตย์';
+    else if(h.includes('เฉลม')) holidayLabel = 'วันหยุดนักขัตฤกษ์ (วันเฉลิมฯ)';
+    else if(h.includes('แม') && (h.includes('ชาต')||h.includes('หงน'))) holidayLabel = 'วันแม่แห่งชาติ';
+    else if(h.includes('ประจ')) holidayLabel = 'วันหยุดพักผ่อนประจำปี';
+    else if(h.includes('สวรรคต')) holidayLabel = h.includes('ชดเชย') ? 'วันหยุดชดเชยวันคล้ายวันสวรรคต ร.9' : 'วันคล้ายวันสวรรคต ร.9';
+    else holidayLabel = h; // fallback: show raw label, still treated as a day off
+  }
+  return {
+    day: r.day, month, year: r.year, holidayLabel,
+    checkIn: r.checkIn, checkOut: r.checkOut,
+    dateLabel: r.day + ' ' + month + (r.year? ' '+r.year : '')
+  };
+}
+
+// ---- rule checking ----
+function toMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
+
+function checkRow(row){
+  const IN_LIMIT = 7*60+30;   // 07:30
+  const OUT_LIMIT = 17*60+30; // 17:30
+  const hasIn = !!row.checkIn, hasOut = !!row.checkOut;
+  let status = 'ok', notes = [];
+
+  if(!hasIn && !hasOut){
+    if(row.holidayLabel){
+      status = 'holiday';
+      notes.push(row.holidayLabel);
+    } else {
+      status = 'warn';
+      notes.push('ไม่มีข้อมูลเข้า-ออกงาน และไม่ใช่วันหยุด');
+    }
+  } else if(hasIn && hasOut && row.checkIn === row.checkOut){
+    status = 'warn';
+    notes.push('เวลาเข้า-ออกตรงกัน (' + row.checkIn + ') น่าจะลืมสแกนอย่างใดอย่างหนึ่ง');
+    if(row.holidayLabel) notes.push(row.holidayLabel);
+  } else {
+    const reasons = [];
+    if(hasIn && toMinutes(row.checkIn) > IN_LIMIT) reasons.push('เข้างานสาย (' + row.checkIn + ' เกิน 07:30)');
+    if(!hasIn) reasons.push('ไม่มีเวลาเข้างาน');
+    if(hasOut && toMinutes(row.checkOut) < OUT_LIMIT) reasons.push('เลิกงานก่อนเวลา (' + row.checkOut + ' ต่ำกว่า 17:30)');
+    if(!hasOut) reasons.push('ไม่มีเวลาออกงาน');
+    if(reasons.length){ status='warn'; notes = reasons; }
+    if(row.holidayLabel) notes.push('(' + row.holidayLabel + ' แต่มีการเข้า-ออกงาน)');
+  }
+  return Object.assign({}, row, {status, note: notes.join('; ') || '-'});
+}
+
+/* ================= Rendering (new UI) ================= */
+const STATUS = {
+  ok:      {label:'ปกติ',     icon:'check'},
+  warn:    {label:'เตือน',    icon:'alert'},
+  holiday: {label:'วันหยุด',  icon:'calendar-check'}
+};
+
+function render(rows){
+  const okCount = rows.filter(r=>r.status==='ok').length;
+  const warnCount = rows.filter(r=>r.status==='warn').length;
+  const holCount = rows.filter(r=>r.status==='holiday').length;
+
+  summaryEl.innerHTML =
+    stat('', 'calendar', 'วันทั้งหมด', rows.length) +
+    stat('ok', 'check', 'ปกติ', okCount) +
+    stat('warn', 'alert', 'ต้องเตือน', warnCount) +
+    stat('holiday', 'calendar-check', 'วันหยุด', holCount);
+  rescountEl.textContent = rows.length + ' วัน';
+
+  const badge = s => '<span class="badge ' + s + '">' + icon(STATUS[s].icon,'sm') + STATUS[s].label + '</span>';
+  const tm = v => v ? '<span class="tm">' + esc(v) + '</span>' : '<span class="tm none">-</span>';
+
+  tbodyEl.innerHTML = rows.map(r => (
+    '<tr class="' + r.status + '">' +
+      '<td>' + esc(r.dateLabel) + '</td>' +
+      '<td>' + badge(r.status) + '</td>' +
+      '<td>' + tm(r.checkIn) + '</td>' +
+      '<td>' + tm(r.checkOut) + '</td>' +
+      '<td class="note-cell">' + esc(r.note) + '</td>' +
+    '</tr>'
+  )).join('');
+
+  listEl.innerHTML = rows.map(r => (
+    '<article class="dayc ' + r.status + '">' +
+      '<div class="dayc-top">' +
+        '<div class="dayc-date">' + icon('calendar','sm') + esc(r.dateLabel) + '</div>' +
+        badge(r.status) +
+      '</div>' +
+      '<div class="times">' +
+        '<div class="timec"><small>' + icon('login','sm') + 'เวลาเข้างาน</small>' + tm(r.checkIn) + '</div>' +
+        '<div class="timec"><small>' + icon('logout','sm') + 'เวลาเลิกงาน</small>' + tm(r.checkOut) + '</div>' +
+      '</div>' +
+      '<div class="note"><b>หมายเหตุ:</b> ' + esc(r.note) + '</div>' +
+    '</article>'
+  )).join('');
+
+  resultsEl.hidden = false;
+}
+
+function stat(kind, ic, label, n){
+  return '<div class="card stat ' + kind + '"><div class="stat-top">' + icon(ic,'sm') + label + '</div><div class="n">' + n + '</div></div>';
+}
+</script>
+</body>
+</html>
