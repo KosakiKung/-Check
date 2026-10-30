@@ -133,22 +133,20 @@ details.rules[open] summary .ic.chev{transform:rotate(180deg)}
 
 /* mobile: card list */
 .tbl{display:none}
-.list{display:grid;gap:10px;padding:8px 12px 14px}
-.dayc{border:1px solid var(--line-soft);border-left-width:4px;border-radius:12px;padding:12px 14px;display:grid;gap:10px;background:var(--surface)}
+.list{display:grid;gap:6px;padding:4px 10px 12px}
+.dayc{border:1px solid var(--line-soft);border-left-width:4px;border-radius:10px;padding:8px 10px;display:grid;gap:4px;background:var(--surface)}
 .dayc.ok{border-left-color:var(--ok)}
 .dayc.warn{border-left-color:var(--warn);background:var(--warn-bg)}
 .dayc.holiday{border-left-color:var(--hol);background:var(--hol-bg)}
-.dayc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.dayc-date{font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
-.times{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.timec{background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px}
-.timec small{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.8rem}
-.timec .tm{font-size:1.1rem;font-weight:600}
-.note{font-size:.92rem;overflow-wrap:anywhere}
+.dayc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dayc-date{font-weight:600;font-size:.95rem;min-width:0}
+.dayc .badge{padding:2px 8px;font-size:.78rem}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:.92rem}
+.tt{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.tt .tm{color:var(--ink);font-weight:600}
+.note{font-size:.88rem;overflow-wrap:anywhere;line-height:1.4}
 .dayc.warn .note{color:var(--warn);font-weight:500}
 .dayc.holiday .note{color:var(--hol)}
-.note b{color:var(--muted);font-weight:500}
-.dayc.warn .note b,.dayc.holiday .note b{color:inherit;opacity:.8}
 
 /* tablet/desktop */
 @media (min-width:768px){
@@ -173,7 +171,7 @@ details.rules[open] summary .ic.chev{transform:rotate(180deg)}
 }
 @media (max-width:359px){
   .stat .n{font-size:1.8rem}
-  .timec .tm{font-size:1rem}
+  .times{font-size:.84rem;column-gap:6px}
 }
 footer{margin-top:28px;display:flex;justify-content:center;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);text-align:center}
 </style>
@@ -496,14 +494,14 @@ function render(rows){
   listEl.innerHTML = rows.map(r => (
     '<article class="dayc ' + r.status + '">' +
       '<div class="dayc-top">' +
-        '<div class="dayc-date">' + icon('calendar','sm') + esc(r.dateLabel) + '</div>' +
+        '<div class="dayc-date">' + esc(r.dateLabel) + '</div>' +
         badge(r.status) +
       '</div>' +
       '<div class="times">' +
-        '<div class="timec"><small>' + icon('login','sm') + 'เวลาเข้างาน</small>' + tm(r.checkIn) + '</div>' +
-        '<div class="timec"><small>' + icon('logout','sm') + 'เวลาเลิกงาน</small>' + tm(r.checkOut) + '</div>' +
+        '<span class="tt" title="เวลาเข้างาน">' + icon('login','sm') + 'เข้า ' + tm(r.checkIn) + '</span>' +
+        '<span class="tt" title="เวลาเลิกงาน">' + icon('logout','sm') + 'เลิก ' + tm(r.checkOut) + '</span>' +
       '</div>' +
-      '<div class="note"><b>หมายเหตุ:</b> ' + esc(r.note) + '</div>' +
+      (r.note !== '-' ? '<div class="note">' + esc(r.note) + '</div>' : '') +
     '</article>'
   )).join('');
 
